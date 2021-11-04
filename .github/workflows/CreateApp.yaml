@@ -1,0 +1,68 @@
+name: Create a new app
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: Name
+        required: true      
+      publisher:
+        description: Publisher
+        required: true
+      idrange:
+        description: ID range (from..to)
+        required: true
+      directCommit:
+        description: Direct COMMIT (Y/N)
+        required: false
+        default: "N"
+
+defaults:
+  run:
+    shell: PowerShell
+
+jobs:
+  initialization :
+    runs-on: windows-latest
+    outputs:
+      telemetryScope: ${{ steps.initialization.outputs.telemetryScope }}
+      correlationId: ${{ steps.initialization.outputs.correlationId }}
+    steps:
+      - name: initialization of workflow
+      - id : initialization
+      - uses: PooyaKharamesh/AL-Go-Actions/InitWorkflow@main
+        with: 
+          workflowName : ${{ env:GITHUB_WORKFLOW }}
+
+  createApp:
+    runs-on: windows-latest
+    needs : [ initialization ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Read settings
+        uses: PooyaKharamesh/AL-Go-Actions/ReadSettings@main
+        with:
+          get: type
+          correlationId: ${{ fromJson(needs.GetCorrelationId.outputs.correlationId) }}
+
+      - name: Creating a new app
+        uses: PooyaKharamesh/AL-Go-Actions/CreateApp@main
+        with:
+          type: ${{ env.type }}
+          name: ${{ github.event.inputs.name }}
+          publisher: ${{ github.event.inputs.publisher }}
+          idrange: ${{ github.event.inputs.idrange }}
+          directCommit: ${{ github.event.inputs.directCommit }}
+
+  postProcess :
+    runs-on: windows-latest
+    needs : [ initialization , createApp ]
+    steps:
+      - name: Finalizing the workflow
+      - id : postProcess
+      - uses: PooyaKharamesh/AL-Go-Actions/workflowpostprocess@main
+        with: 
+          workflowName : ${{ env:GITHUB_WORKFLOW }}
+          telemetryScope : ${{ steps.initialization.outputs.telemetryScope }}
